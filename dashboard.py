@@ -1,13 +1,19 @@
 """Main module for the Streamlit app"""
 
+import datetime
 import requests
 import streamlit as st
 import random
 import socket
 import struct
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 
 NAGER_API_BASE = 'https://date.nager.at/api/v2'
+NAGER_API_GET_HOLIDAYS = 'https://date.nager.at/Api/v1/Get'
 SALUT_API_BASE = 'https://fourtonfish.com/hellosalut'
+NUMBER_OF_PREVIOUS_YEARS = 10
 
 def gen_random_ipv4():
     """
@@ -73,6 +79,52 @@ def load_country_codes():
     return country_codes
 
 
+@st.cache(show_spinner=False)
+def get_numbers_of_holidays(country_code, year):
+    """
+    Get number of holidays based on year and country code
+    Args:
+        country_code: Country code of a given country
+        year: Year for which we should calculate the number of holidays
+
+    Returns:
+        Number of holidays given for a specific country code and year, returned by Nager.Date API.
+    """
+    url = '/'.join([NAGER_API_GET_HOLIDAYS, str(country_code), str(year)])
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        return len(response.json())
+    except requests.exceptions.RequestException as e:
+        raise SystemExit(e)
+
+
+@st.cache(show_spinner=False)
+def get_holidays(country_code):
+    """
+    Given a country code, get the number of holidays from Nager.Date API
+    Args:
+        country_code: Country code of a given country
+
+    Returns:
+        The diagram corresponding to number of holidays in the past 10 years.
+    """
+
+    current_year = datetime.datetime.now().year
+
+    x_years = np.empty(shape=NUMBER_OF_PREVIOUS_YEARS + 1, dtype=int)
+    y_holidays = np.empty(shape=NUMBER_OF_PREVIOUS_YEARS + 1, dtype=int)
+
+    for [index, year] in enumerate(range(current_year - NUMBER_OF_PREVIOUS_YEARS, current_year + 1)):
+        response = get_numbers_of_holidays(country_code, year)
+        x_years[index] = year
+        y_holidays[index] = response
+
+    df = pd.DataFrame({'holidays': y_holidays}, index=x_years)
+    return df
+
+
+
 def main():
 
     st.markdown('This is my new salutation')
@@ -84,7 +136,9 @@ def main():
     country_code = st.selectbox('Select a country code',
                                 country_codes)
 
-    st.markdown('You selected country code -', country_code)
+    st.markdown('You selected country code - ' + country_code)
+
+    st.line_chart(get_holidays(country_code))
 
 
 if __name__ == '__main__':
