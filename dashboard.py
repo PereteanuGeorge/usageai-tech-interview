@@ -68,11 +68,7 @@ def load_country_codes():
     except requests.exceptions.RequestException as e:
             raise SystemExit(e)
 
-    #### TODO - Process the response ####
-
-    country_codes = response.json()
-
-    #####################################
+    country_codes = [country['key'] for country in response.json()]
 
     return country_codes
 
